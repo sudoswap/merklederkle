@@ -29,18 +29,22 @@ func TestMerkleTree_Root(t *testing.T) {
 	}
 	index := 2
 	proof := getProof(tree, index)
-	fmt.Println(proof)
+	fmt.Print("\nproof: ")
+	fmt.Printf("%v\n", proof)
 
 	leaf := leaves[index]
 	root := processProof(leaf, proof)
 	fmt.Println(root)
 	fmt.Println(hex.EncodeToString(root))
 
-	/*	multiProof := getMultiProof(tree, []int{0, index})
-		fmt.Println(multiProof)
+	multiProof := getMultiProof(tree, []int{index + 1})
+	fmt.Println(multiProof)
+	if hex.EncodeToString(multiProof.Leaves[0]) != "2122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40" {
+		t.Error("leaf is not correct, %s vs actual %s", hex.EncodeToString(multiProof.Leaves[0]), "2122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40")
+	}
 
-		multiRoot := processMultiProof(multiProof)
-		fmt.Println(multiRoot)*/
+	multiRoot := processMultiProof(multiProof)
+	fmt.Println(multiRoot)
 
 	valid := isValidMerkleTree(tree)
 	fmt.Println(valid)

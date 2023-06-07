@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"sort"
-
 	"github.com/ethereum/go-ethereum/crypto"
+	"math"
+	"sort"
 )
 
 type Bytes []byte
@@ -69,7 +69,7 @@ func parentIndex(i int) int {
 
 func siblingIndex(i int) int {
 	if i > 0 {
-		return i - (-1) ^ (i % 2)
+		return i - int(math.Pow(-1, float64(i%2)))
 	}
 	throwError("Root has no siblings")
 	return 0
@@ -92,18 +92,6 @@ func isLeafNode(tree []Bytes, i int) bool {
 
 func isValidMerkleNode(node Bytes) bool {
 	return len(node) == 32
-}
-
-func checkTreeNode(tree []Bytes, i int) {
-	if !isTreeNode(tree, i) {
-		throwError("Index is not in tree")
-	}
-}
-
-func checkInternalNode(tree []Bytes, i int) {
-	if !isInternalNode(tree, i) {
-		throwError("Index is not an internal tree node")
-	}
 }
 
 func checkLeafNode(tree []Bytes, i int) {
@@ -189,13 +177,21 @@ func getMultiProof(tree []Bytes, indices []int) MultiProof {
 
 	for len(stack) > 0 && stack[0] > 0 {
 		j := stack[0]
-		stack = stack[1:]
+		if len(stack) > 1 {
+			stack = stack[1:] // consume from the stack
+		} else {
+			stack = make([]int, 0)
+		}
 		s := siblingIndex(j)
 		p := parentIndex(j)
 
-		if s == stack[0] {
+		if len(stack) > 0 && s == stack[0] {
 			proofFlags = append(proofFlags, true)
-			stack = stack[1:] // consume from the stack
+			if len(stack) > 1 {
+				stack = stack[1:] // consume from the stack
+			} else {
+				stack = make([]int, 0)
+			}
 		} else {
 			proofFlags = append(proofFlags, false)
 			proof = append(proof, tree[s])
@@ -237,24 +233,35 @@ func processMultiProof(multiproof MultiProof) Bytes {
 
 	for _, flag := range multiproof.ProofFlags {
 		a := stack[0]
-		stack = stack[1:]
+		if len(stack) > 1 {
+			stack = stack[1:] // consume from the stack
+		} else {
+			stack = make([]Bytes, 0)
+		}
 		var b Bytes
 		if flag {
 			b = stack[0]
-			stack = stack[1:]
+			if len(stack) > 1 {
+				stack = stack[1:] // consume from the stack
+			} else {
+				stack = make([]Bytes, 0)
+			}
 		} else {
 			b = proof[0]
-			proof = proof[1:]
+			if len(proof) > 1 {
+				proof = proof[1:] // consume from the stack
+			} else {
+				proof = make([]Bytes, 0)
+			}
 		}
 		stack = append(stack, hashPair(a, b))
 	}
-
-	result := stack[len(stack)-1]
-	if len(result) == 0 {
+	var result Bytes
+	if len(stack) > 0 {
+		result = stack[len(stack)-1]
+	} else if len(proof) > 0 {
 		result = proof[0]
-		proof = proof[1:]
 	}
-
 	return result
 }
 
@@ -315,9 +322,4 @@ func countFalse(flags []bool) int {
 		}
 	}
 	return count
-}
-
-func mapPathChar(p int) string {
-	pathChars := []string{"└─ ", "├─ "}
-	return pathChars[p]
 }
