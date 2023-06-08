@@ -3,6 +3,7 @@ package merklederkle
 import (
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"testing"
 )
 
@@ -40,7 +41,7 @@ func TestMerkleTree_Root(t *testing.T) {
 	multiProof := getMultiProof(tree, []int{index + 1})
 	fmt.Println(multiProof)
 	if hex.EncodeToString(multiProof.Leaves[0]) != "2122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40" {
-		t.Error("leaf is not correct, %s vs actual %s", hex.EncodeToString(multiProof.Leaves[0]), "2122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40")
+		t.Errorf("leaf is not correct, %s vs actual %s", hex.EncodeToString(multiProof.Leaves[0]), "2122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40")
 	}
 
 	multiRoot := processMultiProof(multiProof)
@@ -48,4 +49,15 @@ func TestMerkleTree_Root(t *testing.T) {
 
 	valid := isValidMerkleTree(tree)
 	fmt.Println(valid)
+
+	numbas := make([]*big.Int, 0)
+	for _, l := range leaves {
+		bigInt := new(big.Int)
+		bigInt.SetBytes(l)
+		numbas = append(numbas, bigInt)
+	}
+	newTree := GenerateMerkleTree(numbas)
+	for _, bt := range newTree {
+		fmt.Println("branch " + hex.EncodeToString(bt))
+	}
 }

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"math"
+	"math/big"
 	"sort"
 )
 
@@ -114,7 +116,7 @@ func makeMerkleTree(leaves []Bytes) []Bytes {
 	if len(leaves) == 0 {
 		panic(errors.New("Expected non-zero number of leaves"))
 	}
-
+	sort.Slice(leaves, func(i, j int) bool { return bytes.Compare(leaves[i], leaves[j]) < 0 })
 	tree := make([]Bytes, 2*len(leaves)-1)
 
 	for i, leaf := range leaves {
@@ -322,4 +324,44 @@ func countFalse(flags []bool) int {
 		}
 	}
 	return count
+}
+
+/*
+Go implementation of this typescript below this line:
+import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
+import { keccak256 } from "@ethersproject/keccak256";
+import MerkleTree from "merkletreejs";
+
+export const hashFn = (tokenId: BigNumberish) =>
+  keccak256(Buffer.from(BigNumber.from(tokenId).toHexString().slice(2).padStart(64, "0"), "hex"));
+
+export const generateMerkleTree = (tokenIds: BigNumberish[]) => {
+  if (!tokenIds.length) {
+    throw new Error("Could not generate merkle tree");
+  }
+
+  const leaves = tokenIds.map(hashFn);
+  return new MerkleTree(leaves, keccak256, { sort: true });
+};
+
+export const generateMerkleProof = (merkleTree: MerkleTree, tokenId: BigNumberish) =>
+  merkleTree.getHexProof(hashFn(tokenId));
+*/
+
+func HashFn(tokenId *big.Int) Bytes {
+	tokenIdBytes := tokenId.Bytes()
+	paddedBytes := common.LeftPadBytes(tokenIdBytes, 32)
+	return crypto.Keccak256(paddedBytes)
+}
+
+func GenerateMerkleTree(tokenIds []*big.Int) []Bytes {
+	if len(tokenIds) == 0 {
+		panic(errors.New("Could not generate merkle tree"))
+	}
+
+	leaves := make([]Bytes, len(tokenIds))
+	for i, tokenId := range tokenIds {
+		leaves[i] = HashFn(tokenId)
+	}
+	return makeMerkleTree(leaves)
 }
