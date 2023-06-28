@@ -2,7 +2,7 @@ package merklederkle
 
 import (
 	"bytes"
-	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,7 +16,7 @@ import (
 type Bytes []byte
 
 func (b *Bytes) MarshalJSON() ([]byte, error) {
-	return json.Marshal(base64.StdEncoding.EncodeToString(*b))
+	return json.Marshal(hex.EncodeToString(*b))
 }
 
 func (b *Bytes) UnmarshalJSON(data []byte) error {
@@ -24,7 +24,7 @@ func (b *Bytes) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}
-	decoded, err := base64.StdEncoding.DecodeString(s)
+	decoded, err := hex.DecodeString(s)
 	if err != nil {
 		return err
 	}
@@ -61,8 +61,8 @@ func bytesEqual(a Bytes, b Bytes) bool {
 	return true
 }
 
-func throwError(msg string) {
-	panic(errors.New(msg))
+func throwError(msg string) error {
+	return errors.New(msg)
 }
 
 func hashPair(a Bytes, b Bytes) Bytes {
@@ -80,12 +80,11 @@ func rightChildIndex(i int) int {
 	return 2*i + 2
 }
 
-func parentIndex(i int) int {
+func parentIndex(i int) (int, error) {
 	if i > 0 {
-		return (i - 1) / 2
+		return (i - 1) / 2, nil
 	}
-	throwError("Root has no parent")
-	return 0
+	return 0, throwError("Root has no parent")
 }
 
 func siblingIndex(i int) int {
@@ -115,19 +114,21 @@ func isValidMerkleNode(node Bytes) bool {
 	return len(node) == 32
 }
 
-func checkLeafNode(tree []Bytes, i int) {
+func checkLeafNode(tree []Bytes, i int) error {
 	if !isLeafNode(tree, i) {
-		throwError("Index is not a leaf")
+		return throwError("Index is not a leaf")
 	}
+	return nil
 }
 
-func checkValidMerkleNode(node Bytes) {
+func checkValidMerkleNode(node Bytes) error {
 	if !isValidMerkleNode(node) {
-		throwError("Merkle tree nodes must be Bytes of length 32")
+		return throwError("Merkle tree nodes must be Bytes of length 32")
 	}
+	return nil
 }
 
-func makeMerkleTree(leaves []Bytes) []Bytes {
+func MakeMerkleTree(leaves []Bytes) []Bytes {
 	for _, leaf := range leaves {
 		checkValidMerkleNode(leaf)
 	}
@@ -151,28 +152,34 @@ func makeMerkleTree(leaves []Bytes) []Bytes {
 	return tree
 }
 
-func getProof(tree []Bytes, index int) []Bytes {
-	checkLeafNode(tree, index)
+func GetProof(tree []Bytes, index int) ([]Bytes, error) {
+	if err := checkLeafNode(tree, index); err != nil {
+		return []Bytes{}, err
+	}
 
 	proof := make([]Bytes, 0)
 	for index > 0 {
 		proof = append(proof, tree[siblingIndex(index)])
-		index = parentIndex(index)
+		index, _ = parentIndex(index)
 	}
-	return proof
+	return proof, nil
 }
 
-func processProof(leaf Bytes, proof []Bytes) Bytes {
-	checkValidMerkleNode(leaf)
+func ProcessProof(leaf Bytes, proof []Bytes) (Bytes, error) {
+	if err := checkValidMerkleNode(leaf); err != nil {
+		return Bytes{}, err
+	}
 	for _, p := range proof {
-		checkValidMerkleNode(p)
+		if err := checkValidMerkleNode(p); err != nil {
+			return Bytes{}, err
+		}
 	}
 
 	result := leaf
 	for _, p := range proof {
 		result = hashPair(result, p)
 	}
-	return result
+	return result, nil
 }
 
 type MultiProof struct {
@@ -181,7 +188,7 @@ type MultiProof struct {
 	ProofFlags []bool
 }
 
-func getMultiProof(tree []Bytes, indices []int) MultiProof {
+func GetMultiProof(tree []Bytes, indices []int) MultiProof {
 	for _, i := range indices {
 		checkLeafNode(tree, i)
 	}
@@ -204,7 +211,7 @@ func getMultiProof(tree []Bytes, indices []int) MultiProof {
 			stack = make([]int, 0)
 		}
 		s := siblingIndex(j)
-		p := parentIndex(j)
+		p, _ := parentIndex(j)
 
 		if len(stack) > 0 && s == stack[0] {
 			proofFlags = append(proofFlags, true)
@@ -231,7 +238,7 @@ func getMultiProof(tree []Bytes, indices []int) MultiProof {
 	}
 }
 
-func processMultiProof(multiproof MultiProof) Bytes {
+func ProcessMultiProof(multiproof MultiProof) Bytes {
 	for _, l := range multiproof.Leaves {
 		checkValidMerkleNode(l)
 	}
@@ -382,5 +389,5 @@ func GenerateMerkleTree(tokenIds []*big.Int) []Bytes {
 	for i, tokenId := range tokenIds {
 		leaves[i] = HashFn(tokenId)
 	}
-	return makeMerkleTree(leaves)
+	return MakeMerkleTree(leaves)
 }
