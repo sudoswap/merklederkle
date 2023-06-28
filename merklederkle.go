@@ -2,6 +2,8 @@ package merklederkle
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +14,23 @@ import (
 )
 
 type Bytes []byte
+
+func (b *Bytes) MarshalJSON() ([]byte, error) {
+	return json.Marshal(base64.StdEncoding.EncodeToString(*b))
+}
+
+func (b *Bytes) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	decoded, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return err
+	}
+	*b = decoded
+	return nil
+}
 
 func keccak256(data ...[]byte) Bytes {
 	hash := crypto.Keccak256(data...)
