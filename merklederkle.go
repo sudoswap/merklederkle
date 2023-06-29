@@ -104,9 +104,6 @@ func isInternalNode(tree []Bytes, i int) bool {
 }
 
 func isLeafNode(tree []Bytes, i int) bool {
-	fmt.Printf("treenode %t", isTreeNode(tree, i))
-	fmt.Printf("!internal %t", !isInternalNode(tree, i))
-
 	return isTreeNode(tree, i) && !isInternalNode(tree, i)
 }
 
@@ -390,4 +387,43 @@ func GenerateMerkleTree(tokenIds []*big.Int) []Bytes {
 		leaves[i] = HashFn(tokenId)
 	}
 	return MakeMerkleTree(leaves)
+}
+
+func GenerateMerkleProof(tree []Bytes, tokenId *big.Int) ([]Bytes, error) {
+	leaf := HashFn(tokenId)
+	index := -1
+	for i, v := range tree {
+		if bytesEqual(v, leaf) {
+			index = i
+			break
+		}
+	}
+	if index == -1 {
+		return nil, errors.New("Leaf not found in tree")
+	}
+	proof, err := GetProof(tree, index)
+	if err != nil {
+		return nil, err
+	}
+	return proof, nil
+}
+
+func GenerateMultiProof(tree []Bytes, tokenIds []*big.Int) (MultiProof, error) {
+	indices := make([]int, len(tokenIds))
+	for i, tokenId := range tokenIds {
+		leaf := HashFn(tokenId)
+		index := -1
+		for j, v := range tree {
+			if bytesEqual(v, leaf) {
+				index = j
+				break
+			}
+		}
+		if index == -1 {
+			return MultiProof{}, fmt.Errorf("Leaf for token ID %d not found in tree", tokenId)
+		}
+		indices[i] = index
+	}
+	multiproof := GetMultiProof(tree, indices)
+	return multiproof, nil
 }

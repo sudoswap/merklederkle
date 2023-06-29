@@ -60,4 +60,17 @@ func TestMerkleTree_Root(t *testing.T) {
 	for _, bt := range newTree {
 		fmt.Println("branch " + hex.EncodeToString(bt))
 	}
+	proof, err := GenerateMerkleProof(newTree, numbas[1])
+	if err != nil {
+		t.Error(err)
+	}
+	for _, p := range proof {
+		fmt.Println("proof " + hex.EncodeToString(p))
+	}
+
+	mproofs, err := GenerateMultiProof(newTree, []*big.Int{numbas[1], numbas[2]})
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Printf("mulitiproof %+v", mproofs)
 }
